@@ -5,11 +5,7 @@ import 'hymn_detail_screen.dart';
 class HymnsScreen extends StatefulWidget {
   const HymnsScreen({super.key});
 
-  @override
-  _HymnsScreenState createState() => _HymnsScreenState();
-}
-
-class _HymnsScreenState extends State<HymnsScreen> {
+  // Define hymns as static const
   static const List<Hymn> hymns = [
     Hymn(
       id: 1,
@@ -29,11 +25,18 @@ class _HymnsScreenState extends State<HymnsScreen> {
     ),
   ];
 
+  @override
+  _HymnsScreenState createState() => _HymnsScreenState();
+}
+
+class _HymnsScreenState extends State<HymnsScreen> {
   String _searchQuery = '';
 
   @override
   Widget build(BuildContext context) {
-    final filteredHymns = hymns.where((hymn) => hymn.title.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+    final filteredHymns = HymnsScreen.hymns
+        .where((hymn) => hymn.title.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -42,7 +45,7 @@ class _HymnsScreenState extends State<HymnsScreen> {
           IconButton(
             icon: const Icon(Icons.search),
             onPressed: () async {
-              final query = await showSearch(context: context, delegate: HymnSearchDelegate(hymns));
+              final query = await showSearch(context: context, delegate: HymnSearchDelegate(HymnsScreen.hymns));
               if (query != null) setState(() => _searchQuery = query);
             },
           ),

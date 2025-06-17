@@ -5,6 +5,7 @@ import 'hymn_detail_screen.dart';
 class PsalmsScreen extends StatelessWidget {
   const PsalmsScreen({super.key});
 
+  // Define psalms as static const
   static const List<Hymn> psalms = [
     Hymn(
       id: 1,
