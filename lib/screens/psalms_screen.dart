@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/hymn.dart';
+import '../providers/font_size_provider.dart';
+import '../providers/theme_provider.dart';
 import 'hymn_detail_screen.dart';
 
 class PsalmsScreen extends StatefulWidget {
@@ -25,25 +28,29 @@ class _PsalmsScreenState extends State<PsalmsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final filteredPsalms = PsalmsScreen.psalms
+    final filteredItems = PsalmsScreen.psalms
         .where((psalm) => psalm.title.toLowerCase().contains(_searchQuery.toLowerCase()))
         .toList();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Psalms',
-          style: TextStyle(
-            fontFamily: 'Roboto',
-            fontSize: 22,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
+        title: Consumer<FontSizeProvider>(
+          builder: (context, fontSizeProvider, child) => Text(
+            'Psalms',
+            style: TextStyle(
+              fontFamily: 'Roboto',
+              fontSize: 22 * fontSizeProvider.fontScale,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
           ),
         ),
         flexibleSpace: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF3F51B5), Color(0xFF2196F3)],
+              colors: Provider.of<ThemeProvider>(context).isDarkMode
+                  ? [const Color(0xFF1A237E), const Color(0xFF1565C0)]
+                  : [const Color(0xFF3F51B5), const Color(0xFF2196F3)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -64,27 +71,31 @@ class _PsalmsScreenState extends State<PsalmsScreen> {
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.grey[100]!, Colors.white],
+            colors: Provider.of<ThemeProvider>(context).isDarkMode
+                ? [const Color(0xFF121212), const Color(0xFF1E1E1E)]
+                : [Colors.grey[100]!, Colors.white],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
         ),
-        child: filteredPsalms.isEmpty
+        child: filteredItems.isEmpty
             ? Center(
-                child: Text(
-                  'No psalms found',
-                  style: TextStyle(
-                    fontFamily: 'Roboto',
-                    fontSize: 18,
-                    color: Colors.grey[600],
+                child: Consumer<FontSizeProvider>(
+                  builder: (context, fontSizeProvider, child) => Text(
+                    'No psalms found',
+                    style: TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 18 * fontSizeProvider.fontScale,
+                      color: Provider.of<ThemeProvider>(context).isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                    ),
                   ),
                 ),
               )
             : ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                itemCount: filteredPsalms.length,
+                itemCount: filteredItems.length,
                 itemBuilder: (context, index) {
-                  final psalm = filteredPsalms[index];
+                  final psalm = filteredItems[index];
                   return GestureDetector(
                     onTap: () => Navigator.push(
                       context,
@@ -97,40 +108,44 @@ class _PsalmsScreenState extends State<PsalmsScreen> {
                       child: Container(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFF1F8E9), Colors.white],
+                          gradient: LinearGradient(
+                            colors: Provider.of<ThemeProvider>(context).isDarkMode
+                                ? [const Color(0xFF1E1E1E), const Color(0xFF424242)]
+                                : [const Color(0xFFF1F8E9), Colors.white],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
                         ),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          leading: CircleAvatar(
-                            radius: 20,
-                            backgroundColor: const Color(0xFF4CAF50),
-                            child: const Icon(Icons.auto_stories, color: Colors.white, size: 20),
-                          ),
-                          title: Text(
-                            psalm.title,
-                            style: const TextStyle(
-                              fontFamily: 'Roboto',
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.black87,
+                        child: Consumer<FontSizeProvider>(
+                          builder: (context, fontSizeProvider, child) => ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            leading: CircleAvatar(
+                              radius: 20,
+                              backgroundColor: const Color(0xFF4CAF50),
+                              child: const Icon(Icons.auto_stories, color: Colors.white, size: 20),
                             ),
-                          ),
-                          subtitle: Text(
-                            'Tune: ${psalm.tune}',
-                            style: TextStyle(
-                              fontFamily: 'Roboto',
-                              fontSize: 12,
-                              color: Colors.grey[600],
+                            title: Text(
+                              psalm.title,
+                              style: TextStyle(
+                                fontFamily: 'Roboto',
+                                fontSize: 16 * fontSizeProvider.fontScale,
+                                fontWeight: FontWeight.w500,
+                                color: Provider.of<ThemeProvider>(context).isDarkMode ? Colors.white : Colors.black87,
+                              ),
                             ),
-                          ),
-                          trailing: Icon(
-                            Icons.arrow_forward_ios,
-                            size: 18,
-                            color: Colors.grey[400],
+                            subtitle: Text(
+                              'Tune: ${psalm.tune}',
+                              style: TextStyle(
+                                fontFamily: 'Roboto',
+                                fontSize: 12 * fontSizeProvider.fontScale,
+                                color: Provider.of<ThemeProvider>(context).isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                              ),
+                            ),
+                            trailing: Icon(
+                              Icons.arrow_forward_ios,
+                              size: 18,
+                              color: Provider.of<ThemeProvider>(context).isDarkMode ? Colors.grey[400] : Colors.grey[400],
+                            ),
                           ),
                         ),
                       ),
@@ -151,13 +166,13 @@ class PsalmSearchDelegate extends SearchDelegate {
   @override
   ThemeData appBarTheme(BuildContext context) {
     return Theme.of(context).copyWith(
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFF3F51B5),
+      appBarTheme: AppBarTheme(
+        backgroundColor: Provider.of<ThemeProvider>(context).isDarkMode ? const Color(0xFF1A237E) : const Color(0xFF3F51B5),
         elevation: 0,
         titleTextStyle: TextStyle(
           fontFamily: 'Roboto',
           color: Colors.white,
-          fontSize: 20,
+          fontSize: 20 * Provider.of<FontSizeProvider>(context).fontScale,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -166,12 +181,12 @@ class PsalmSearchDelegate extends SearchDelegate {
         border: InputBorder.none,
       ),
       textTheme: Theme.of(context).textTheme.copyWith(
-        titleLarge: const TextStyle(
-          fontFamily: 'Roboto',
-          color: Colors.white,
-          fontSize: 20,
-        ),
-      ),
+            titleLarge: TextStyle(
+              fontFamily: 'Roboto',
+              color: Colors.white,
+              fontSize: 20 * Provider.of<FontSizeProvider>(context).fontScale,
+            ),
+          ),
     );
   }
 
@@ -196,7 +211,7 @@ class PsalmSearchDelegate extends SearchDelegate {
   Widget buildSuggestions(BuildContext context) {
     final filtered = psalms.where((psalm) => psalm.title.toLowerCase().contains(query.toLowerCase())).toList();
     return Container(
-      color: Colors.grey[100],
+      color: Provider.of<ThemeProvider>(context).isDarkMode ? const Color(0xFF121212) : Colors.grey[100],
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         itemCount: filtered.length,
@@ -209,44 +224,44 @@ class PsalmSearchDelegate extends SearchDelegate {
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFF1F8E9), Colors.white],
+                gradient: LinearGradient(
+                  colors: Provider.of<ThemeProvider>(context).isDarkMode
+                      ? [const Color(0xFF1E1E1E), const Color(0xFF424242)]
+                      : [const Color(0xFFF1F8E9), Colors.white],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
               ),
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                leading: CircleAvatar(
-                  radius: 20,
-                  backgroundColor: const Color(0xFF4CAF50),
-                  child: const Icon(Icons.auto_stories, color: Colors.white, size: 20),
-                ),
-                title: Text(
-                  psalm.title,
-                  style: const TextStyle(
-                    fontFamily: 'Roboto',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
+              child: Consumer<FontSizeProvider>(
+                builder: (context, fontSizeProvider, child) => ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  leading: CircleAvatar(
+                    radius: 20,
+                    backgroundColor: const Color(0xFF4CAF50),
+                    child: const Icon(Icons.auto_stories, color: Colors.white, size: 20),
                   ),
-                ),
-                subtitle: Text(
-                  'Tune: ${psalm.tune}',
-                  style: TextStyle(
-                    fontFamily: 'Roboto',
-                    fontSize: 12,
-                    color: Colors.grey[600],
+                  title: Text(
+                    psalm.title,
+                    style: TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 16 * fontSizeProvider.fontScale,
+                      fontWeight: FontWeight.w500,
+                      color: Provider.of<ThemeProvider>(context).isDarkMode ? Colors.white : Colors.black87,
+                    ),
                   ),
+                  subtitle: Text(
+                    'Tune: ${psalm.tune}',
+                    style: TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 12 * fontSizeProvider.fontScale,
+                      color: Provider.of<ThemeProvider>(context).isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                    ),
+                  ),
+                  onTap: () {
+                    close(context, psalm.title);
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => HymnDetailScreen(hymn: psalm)));
+                  },
                 ),
-                trailing: Icon(
-                  Icons.arrow_forward_ios,
-                  size: 18,
-                  color: Colors.grey[400],
-                ),
-                onTap: () {
-                  close(context, psalm.title);
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => HymnDetailScreen(hymn: psalm)));
-                },
               ),
             ),
           );

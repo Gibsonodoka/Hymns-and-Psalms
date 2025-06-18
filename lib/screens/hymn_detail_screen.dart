@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
 import 'dart:io';
 import '../models/hymn.dart';
+import '../providers/font_size_provider.dart';
+import '../providers/theme_provider.dart';
 
 class HymnDetailScreen extends StatefulWidget {
   final Hymn hymn;
@@ -32,7 +35,6 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
     super.initState();
     _initializeAudio();
     _initializePdf();
-    // Listen to position and duration streams for progress bar
     _player.positionStream.listen((position) {
       if (mounted) {
         setState(() => _position = position);
@@ -47,15 +49,13 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
 
   Future<void> _initializeAudio() async {
     if (kIsWeb) {
-      print('Web platform detected, audio disabled');
       setState(() => _isAudioInitialized = false);
       return;
     }
     setState(() => _isAudioLoading = true);
     try {
-      print('Initializing audio for: ${widget.hymn.audioUrl}');
       await _player.setAsset(widget.hymn.audioUrl);
-      await _player.setLoopMode(LoopMode.off); // Default: no looping
+      await _player.setLoopMode(LoopMode.off);
       _player.playerStateStream.listen((state) {
         if (mounted) {
           setState(() => _isPlaying = state.playing);
@@ -66,15 +66,13 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
           _isAudioInitialized = true;
           _isAudioLoading = false;
         });
-        print('Audio initialized successfully');
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
       if (mounted) {
         setState(() {
           _isAudioInitialized = false;
           _isAudioLoading = false;
         });
-        print('Error initializing audio: $e\nStackTrace: $stackTrace');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error initializing audio: $e')),
         );
@@ -84,13 +82,11 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
 
   Future<void> _initializePdf() async {
     if (kIsWeb) {
-      print('Web platform detected, PDF disabled');
       setState(() => _isPdfInitialized = false);
       return;
     }
     setState(() => _isPdfLoading = true);
     try {
-      print('Loading PDF: ${widget.hymn.sheetUrl}');
       final bytes = await DefaultAssetBundle.of(context).load(widget.hymn.sheetUrl);
       final tempDir = await getTemporaryDirectory();
       final tempFile = File('${tempDir.path}/${widget.hymn.title.replaceAll(' ', '_')}.pdf');
@@ -101,15 +97,13 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
           _isPdfInitialized = true;
           _isPdfLoading = false;
         });
-        print('PDF loaded successfully: $_pdfPath');
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
       if (mounted) {
         setState(() {
           _isPdfInitialized = false;
           _isPdfLoading = false;
         });
-        print('Error loading PDF: $e\nStackTrace: $stackTrace');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading PDF: $e')),
         );
@@ -121,9 +115,7 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
     try {
       await _player.setLoopMode(_isLooping ? LoopMode.off : LoopMode.one);
       setState(() => _isLooping = !_isLooping);
-      print('Loop mode set to: ${_isLooping ? 'on' : 'off'}');
     } catch (e) {
-      print('Error toggling loop: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error toggling loop: $e')),
       );
@@ -146,19 +138,23 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          widget.hymn.title,
-          style: const TextStyle(
-            fontFamily: 'Roboto',
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
+        title: Consumer<FontSizeProvider>(
+          builder: (context, fontSizeProvider, child) => Text(
+            widget.hymn.title,
+            style: TextStyle(
+              fontFamily: 'Roboto',
+              fontSize: 20 * fontSizeProvider.fontScale,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
           ),
         ),
         flexibleSpace: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF3F51B5), Color(0xFF2196F3)],
+              colors: Provider.of<ThemeProvider>(context).isDarkMode
+                  ? [const Color(0xFF1A237E), const Color(0xFF1565C0)]
+                  : [const Color(0xFF3F51B5), const Color(0xFF2196F3)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -168,7 +164,6 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
       ),
       body: Column(
         children: [
-          // Compact media player controls
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: Card(
@@ -177,33 +172,52 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
                 decoration: BoxDecoration(
-                  color: Colors.grey[100],
+                  gradient: LinearGradient(
+                    colors: Provider.of<ThemeProvider>(context).isDarkMode
+                        ? [const Color(0xFF1E1E1E), const Color(0xFF424242)]
+                        : [Colors.grey[100]!, Colors.white],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: kIsWeb || !_isAudioInitialized
                     ? _isAudioLoading
                         ? const Center(child: CircularProgressIndicator())
-                        : const Text(
-                            'Audio not supported',
-                            style: TextStyle(fontSize: 14, color: Colors.red),
+                        : Consumer<FontSizeProvider>(
+                            builder: (context, fontSizeProvider, child) => Text(
+                              'Audio not supported',
+                              style: TextStyle(
+                                fontSize: 14 * fontSizeProvider.fontScale,
+                                color: Colors.red,
+                              ),
+                            ),
                           )
                     : Column(
                         children: [
-                          // Duration labels
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                _formatDuration(_position),
-                                style: const TextStyle(fontSize: 10, color: Colors.black54),
+                              Consumer<FontSizeProvider>(
+                                builder: (context, fontSizeProvider, child) => Text(
+                                  _formatDuration(_position),
+                                  style: TextStyle(
+                                    fontSize: 10 * fontSizeProvider.fontScale,
+                                    color: Provider.of<ThemeProvider>(context).isDarkMode ? Colors.grey[400] : Colors.black54,
+                                  ),
+                                ),
                               ),
-                              Text(
-                                _formatDuration(_duration),
-                                style: const TextStyle(fontSize: 10, color: Colors.black54),
+                              Consumer<FontSizeProvider>(
+                                builder: (context, fontSizeProvider, child) => Text(
+                                  _formatDuration(_duration),
+                                  style: TextStyle(
+                                    fontSize: 10 * fontSizeProvider.fontScale,
+                                    color: Provider.of<ThemeProvider>(context).isDarkMode ? Colors.grey[400] : Colors.black54,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
-                          // Progress bar and controls in one row
                           Row(
                             children: [
                               IconButton(
@@ -238,9 +252,10 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
                                     try {
                                       final newPosition = Duration(seconds: value.toInt());
                                       await _player.seek(newPosition);
-                                      print('Seeked to: $newPosition');
                                     } catch (e) {
-                                      print('Error seeking: $e');
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Error seeking: $e')),
+                                      );
                                     }
                                   },
                                 ),
@@ -255,7 +270,7 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
                                 onPressed: _toggleLoop,
                                 tooltip: _isLooping ? 'Disable Loop' : 'Enable Loop',
                               ),
-                              const SizedBox(width: 4), 
+                              const SizedBox(width: 4),
                               IconButton(
                                 icon: Icon(
                                   _showSheet ? Icons.lyrics : Icons.description,
@@ -273,16 +288,20 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
               ),
             ),
           ),
-          // Content area (PDF or Lyrics)
           Expanded(
             child: _showSheet
                 ? kIsWeb || !_isPdfInitialized || _pdfPath == null
                     ? _isPdfLoading
                         ? const Center(child: CircularProgressIndicator())
-                        : Center(
-                            child: Text(
-                              'PDF not supported: ${_pdfPath ?? 'No file'}',
-                              style: const TextStyle(fontSize: 16, color: Colors.red),
+                        : Consumer<FontSizeProvider>(
+                            builder: (context, fontSizeProvider, child) => Center(
+                              child: Text(
+                                'PDF not supported: ${_pdfPath ?? 'No file'}',
+                                style: TextStyle(
+                                  fontSize: 16 * fontSizeProvider.fontScale,
+                                  color: Colors.red,
+                                ),
+                              ),
                             ),
                           )
                     : PDFView(
@@ -291,7 +310,6 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
                         enableSwipe: true,
                         swipeHorizontal: true,
                         onError: (error) {
-                          print('PDFView error: $error');
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text('Error rendering PDF: $error')),
                           );
@@ -299,12 +317,15 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
                       )
                 : SingleChildScrollView(
                     padding: const EdgeInsets.all(16),
-                    child: Text(
-                      widget.hymn.lyrics,
-                      style: const TextStyle(
-                        fontFamily: 'Roboto',
-                        fontSize: 16,
-                        height: 1.5,
+                    child: Consumer<FontSizeProvider>(
+                      builder: (context, fontSizeProvider, child) => Text(
+                        widget.hymn.lyrics,
+                        style: TextStyle(
+                          fontFamily: 'Roboto',
+                          fontSize: 16 * fontSizeProvider.fontScale,
+                          height: 1.5,
+                          color: Provider.of<ThemeProvider>(context).isDarkMode ? Colors.white : Colors.black87,
+                        ),
                       ),
                     ),
                   ),

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'hymns_screen.dart';
 import 'psalms_screen.dart';
 import 'settings_screen.dart';
 import 'pro_screen.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../models/hymn.dart';
+import '../providers/font_size_provider.dart';
+import '../providers/theme_provider.dart';
 import 'hymn_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -51,7 +54,6 @@ class HomeContent extends StatefulWidget {
 class _HomeContentState extends State<HomeContent> {
   String _searchQuery = '';
 
-  // Combine hymns and psalms into a single list
   static final List<Map<String, dynamic>> items = [
     ...HymnsScreen.hymns.map((hymn) => {'type': 'Hymn', 'data': hymn}),
     ...PsalmsScreen.psalms.map((psalm) => {'type': 'Psalm', 'data': psalm}),
@@ -59,7 +61,6 @@ class _HomeContentState extends State<HomeContent> {
 
   @override
   Widget build(BuildContext context) {
-    // Filter items based on search query
     final filteredItems = _searchQuery.isEmpty
         ? items
         : items.where((item) {
@@ -69,19 +70,23 @@ class _HomeContentState extends State<HomeContent> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Hymn & Psalm',
-          style: TextStyle(
-            fontFamily: 'Roboto',
-            fontSize: 22,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
+        title: Consumer<FontSizeProvider>(
+          builder: (context, fontSizeProvider, child) => Text(
+            'Hymn & Psalm',
+            style: TextStyle(
+              fontFamily: 'Roboto',
+              fontSize: 22 * fontSizeProvider.fontScale,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
           ),
         ),
         flexibleSpace: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF3F51B5), Color(0xFF2196F3)],
+              colors: Provider.of<ThemeProvider>(context).isDarkMode
+                  ? [const Color(0xFF1A237E), const Color(0xFF1565C0)]
+                  : [const Color(0xFF3F51B5), const Color(0xFF2196F3)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -104,19 +109,23 @@ class _HomeContentState extends State<HomeContent> {
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.grey[100]!, Colors.white],
+            colors: Provider.of<ThemeProvider>(context).isDarkMode
+                ? [const Color(0xFF121212), const Color(0xFF1E1E1E)]
+                : [Colors.grey[100]!, Colors.white],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
         ),
         child: filteredItems.isEmpty
             ? Center(
-                child: Text(
-                  'No results found',
-                  style: TextStyle(
-                    fontFamily: 'Roboto',
-                    fontSize: 18,
-                    color: Colors.grey[600],
+                child: Consumer<FontSizeProvider>(
+                  builder: (context, fontSizeProvider, child) => Text(
+                    'No results found',
+                    style: TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 18 * fontSizeProvider.fontScale,
+                      color: Provider.of<ThemeProvider>(context).isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                    ),
                   ),
                 ),
               )
@@ -144,45 +153,49 @@ class _HomeContentState extends State<HomeContent> {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(16),
                           gradient: LinearGradient(
-                            colors: isHymn
-                                ? [const Color(0xFFE8EAF6), Colors.white]
-                                : [const Color(0xFFF1F8E9), Colors.white],
+                            colors: Provider.of<ThemeProvider>(context).isDarkMode
+                                ? [const Color(0xFF1E1E1E), const Color(0xFF424242)]
+                                : isHymn
+                                    ? [const Color(0xFFE8EAF6), Colors.white]
+                                    : [const Color(0xFFF1F8E9), Colors.white],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
                         ),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          leading: CircleAvatar(
-                            radius: 24,
-                            backgroundColor: isHymn ? const Color(0xFF3F51B5) : const Color(0xFF4CAF50),
-                            child: Icon(
-                              isHymn ? Icons.music_note : Icons.auto_stories,
-                              color: Colors.white,
-                              size: 24,
+                        child: Consumer<FontSizeProvider>(
+                          builder: (context, fontSizeProvider, child) => ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            leading: CircleAvatar(
+                              radius: 24,
+                              backgroundColor: isHymn ? const Color(0xFF3F51B5) : const Color(0xFF4CAF50),
+                              child: Icon(
+                                isHymn ? Icons.music_note : Icons.auto_stories,
+                                color: Colors.white,
+                                size: 24,
+                              ),
                             ),
-                          ),
-                          title: Text(
-                            hymn.title,
-                            style: const TextStyle(
-                              fontFamily: 'Roboto',
-                              fontSize: 18,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.black87,
+                            title: Text(
+                              hymn.title,
+                              style: TextStyle(
+                                fontFamily: 'Roboto',
+                                fontSize: 18 * fontSizeProvider.fontScale,
+                                fontWeight: FontWeight.w500,
+                                color: Provider.of<ThemeProvider>(context).isDarkMode ? Colors.white : Colors.black87,
+                              ),
                             ),
-                          ),
-                          subtitle: Text(
-                            'Type: ${item['type']} | Tune: ${hymn.tune}',
-                            style: TextStyle(
-                              fontFamily: 'Roboto',
-                              fontSize: 14,
-                              color: Colors.grey[600],
+                            subtitle: Text(
+                              'Type: ${item['type']} | Tune: ${hymn.tune}',
+                              style: TextStyle(
+                                fontFamily: 'Roboto',
+                                fontSize: 14 * fontSizeProvider.fontScale,
+                                color: Provider.of<ThemeProvider>(context).isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                              ),
                             ),
-                          ),
-                          trailing: Icon(
-                            Icons.arrow_forward_ios,
-                            size: 18,
-                            color: Colors.grey[400],
+                            trailing: Icon(
+                              Icons.arrow_forward_ios,
+                              size: 18,
+                              color: Provider.of<ThemeProvider>(context).isDarkMode ? Colors.grey[400] : Colors.grey[400],
+                            ),
                           ),
                         ),
                       ),
@@ -195,7 +208,6 @@ class _HomeContentState extends State<HomeContent> {
   }
 }
 
-// Search delegate for HomeContent
 class HomeSearchDelegate extends SearchDelegate {
   final List<Map<String, dynamic>> items;
 
@@ -204,13 +216,13 @@ class HomeSearchDelegate extends SearchDelegate {
   @override
   ThemeData appBarTheme(BuildContext context) {
     return Theme.of(context).copyWith(
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFF3F51B5),
+      appBarTheme: AppBarTheme(
+        backgroundColor: Provider.of<ThemeProvider>(context).isDarkMode ? const Color(0xFF1A237E) : const Color(0xFF3F51B5),
         elevation: 0,
         titleTextStyle: TextStyle(
           fontFamily: 'Roboto',
           color: Colors.white,
-          fontSize: 20,
+          fontSize: 20 * Provider.of<FontSizeProvider>(context).fontScale,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -219,12 +231,12 @@ class HomeSearchDelegate extends SearchDelegate {
         border: InputBorder.none,
       ),
       textTheme: Theme.of(context).textTheme.copyWith(
-        titleLarge: const TextStyle(
-          fontFamily: 'Roboto',
-          color: Colors.white,
-          fontSize: 20,
-        ),
-      ),
+            titleLarge: TextStyle(
+              fontFamily: 'Roboto',
+              color: Colors.white,
+              fontSize: 20 * Provider.of<FontSizeProvider>(context).fontScale,
+            ),
+          ),
     );
   }
 
@@ -253,7 +265,7 @@ class HomeSearchDelegate extends SearchDelegate {
     }).toList();
 
     return Container(
-      color: Colors.grey[100],
+      color: Provider.of<ThemeProvider>(context).isDarkMode ? const Color(0xFF121212) : Colors.grey[100],
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         itemCount: filtered.length,
@@ -265,40 +277,57 @@ class HomeSearchDelegate extends SearchDelegate {
             elevation: 2,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             margin: const EdgeInsets.symmetric(vertical: 6),
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              leading: CircleAvatar(
-                radius: 20,
-                backgroundColor: isHymn ? const Color(0xFF3F51B5) : const Color(0xFF4CAF50),
-                child: Icon(
-                  isHymn ? Icons.music_note : Icons.auto_stories,
-                  color: Colors.white,
-                  size: 20,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                gradient: LinearGradient(
+                  colors: Provider.of<ThemeProvider>(context).isDarkMode
+                      ? [const Color(0xFF1E1E1E), const Color(0xFF424242)]
+                      : isHymn
+                          ? [const Color(0xFFE8EAF6), Colors.white]
+                          : [const Color(0xFFF1F8E9), Colors.white],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
               ),
-              title: Text(
-                hymn.title,
-                style: const TextStyle(
-                  fontFamily: 'Roboto',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
+              child: Consumer<FontSizeProvider>(
+                builder: (context, fontSizeProvider, child) => ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  leading: CircleAvatar(
+                    radius: 20,
+                    backgroundColor: isHymn ? const Color(0xFF3F51B5) : const Color(0xFF4CAF50),
+                    child: Icon(
+                      isHymn ? Icons.music_note : Icons.auto_stories,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  title: Text(
+                    hymn.title,
+                    style: TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 16 * fontSizeProvider.fontScale,
+                      fontWeight: FontWeight.w500,
+                      color: Provider.of<ThemeProvider>(context).isDarkMode ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Type: ${item['type']} | Tune: ${hymn.tune}',
+                    style: TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 12 * fontSizeProvider.fontScale,
+                      color: Provider.of<ThemeProvider>(context).isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                    ),
+                  ),
+                  onTap: () {
+                    close(context, hymn.title);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => HymnDetailScreen(hymn: hymn)),
+                    );
+                  },
                 ),
               ),
-              subtitle: Text(
-                'Type: ${item['type']} | Tune: ${hymn.tune}',
-                style: TextStyle(
-                  fontFamily: 'Roboto',
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
-              ),
-              onTap: () {
-                close(context, hymn.title);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => HymnDetailScreen(hymn: hymn)),
-                );
-              },
             ),
           );
         },
