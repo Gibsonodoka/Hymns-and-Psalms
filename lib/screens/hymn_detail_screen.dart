@@ -20,15 +20,29 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
   bool _isPlaying = false;
   bool _isAudioInitialized = false;
   bool _isAudioLoading = false;
+  bool _isLooping = false;
   String? _pdfPath;
   bool _isPdfInitialized = false;
   bool _isPdfLoading = false;
+  Duration _position = Duration.zero;
+  Duration _duration = Duration.zero;
 
   @override
   void initState() {
     super.initState();
     _initializeAudio();
     _initializePdf();
+    // Listen to position and duration streams for progress bar
+    _player.positionStream.listen((position) {
+      if (mounted) {
+        setState(() => _position = position);
+      }
+    });
+    _player.durationStream.listen((duration) {
+      if (mounted) {
+        setState(() => _duration = duration ?? Duration.zero);
+      }
+    });
   }
 
   Future<void> _initializeAudio() async {
@@ -41,6 +55,7 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
     try {
       print('Initializing audio for: ${widget.hymn.audioUrl}');
       await _player.setAsset(widget.hymn.audioUrl);
+      await _player.setLoopMode(LoopMode.off); // Default: no looping
       _player.playerStateStream.listen((state) {
         if (mounted) {
           setState(() => _isPlaying = state.playing);
@@ -102,6 +117,25 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
     }
   }
 
+  Future<void> _toggleLoop() async {
+    try {
+      await _player.setLoopMode(_isLooping ? LoopMode.off : LoopMode.one);
+      setState(() => _isLooping = !_isLooping);
+      print('Loop mode set to: ${_isLooping ? 'on' : 'off'}');
+    } catch (e) {
+      print('Error toggling loop: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error toggling loop: $e')),
+      );
+    }
+  }
+
+  String _formatDuration(Duration duration) {
+    final minutes = duration.inMinutes;
+    final seconds = duration.inSeconds % 60;
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
+
   @override
   void dispose() {
     _player.dispose();
@@ -134,31 +168,51 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
       ),
       body: Column(
         children: [
+          // Compact media player controls
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    kIsWeb || !_isAudioInitialized
-                        ? _isAudioLoading
-                            ? const CircularProgressIndicator()
-                            : const Text(
-                                'Audio not supported',
-                                style: TextStyle(fontSize: 14, color: Colors.red),
-                              )
-                        : Row(
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: kIsWeb || !_isAudioInitialized
+                    ? _isAudioLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : const Text(
+                            'Audio not supported',
+                            style: TextStyle(fontSize: 14, color: Colors.red),
+                          )
+                    : Column(
+                        children: [
+                          // Duration labels
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                _formatDuration(_position),
+                                style: const TextStyle(fontSize: 10, color: Colors.black54),
+                              ),
+                              Text(
+                                _formatDuration(_duration),
+                                style: const TextStyle(fontSize: 10, color: Colors.black54),
+                              ),
+                            ],
+                          ),
+                          // Progress bar and controls in one row
+                          Row(
                             children: [
                               IconButton(
                                 icon: Icon(
-                                  _isPlaying ? Icons.pause : Icons.play_arrow,
-                                  size: 28,
+                                  _isPlaying ? Icons.pause : Icons.music_note,
+                                  size: 24,
                                   color: Theme.of(context).primaryColor,
                                 ),
+                                padding: EdgeInsets.zero,
                                 onPressed: () async {
                                   try {
                                     if (_isPlaying) {
@@ -174,40 +228,52 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
                                 },
                                 tooltip: _isPlaying ? 'Pause' : 'Play',
                               ),
+                              Expanded(
+                                child: Slider(
+                                  value: _position.inSeconds.toDouble().clamp(0, _duration.inSeconds.toDouble()),
+                                  max: _duration.inSeconds.toDouble() > 0 ? _duration.inSeconds.toDouble() : 1,
+                                  activeColor: Theme.of(context).primaryColor,
+                                  inactiveColor: Colors.grey[400],
+                                  onChanged: (value) async {
+                                    try {
+                                      final newPosition = Duration(seconds: value.toInt());
+                                      await _player.seek(newPosition);
+                                      print('Seeked to: $newPosition');
+                                    } catch (e) {
+                                      print('Error seeking: $e');
+                                    }
+                                  },
+                                ),
+                              ),
                               IconButton(
                                 icon: Icon(
-                                  Icons.stop,
-                                  size: 28,
+                                  Icons.repeat,
+                                  size: 24,
+                                  color: _isLooping ? Theme.of(context).primaryColor : Colors.grey,
+                                ),
+                                padding: EdgeInsets.zero,
+                                onPressed: _toggleLoop,
+                                tooltip: _isLooping ? 'Disable Loop' : 'Enable Loop',
+                              ),
+                              const SizedBox(width: 4), 
+                              IconButton(
+                                icon: Icon(
+                                  _showSheet ? Icons.lyrics : Icons.description,
+                                  size: 24,
                                   color: Theme.of(context).primaryColor,
                                 ),
-                                onPressed: () async {
-                                  try {
-                                    await _player.stop();
-                                    await _player.seek(Duration.zero);
-                                  } catch (e) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Error stopping audio: $e')),
-                                    );
-                                  }
-                                },
-                                tooltip: 'Stop',
+                                padding: EdgeInsets.zero,
+                                onPressed: () => setState(() => _showSheet = !_showSheet),
+                                tooltip: _showSheet ? 'Show Lyrics' : 'Show Music Sheet',
                               ),
                             ],
                           ),
-                    IconButton(
-                      icon: Icon(
-                        _showSheet ? Icons.lyrics : Icons.description,
-                        size: 28,
-                        color: Theme.of(context).primaryColor,
+                        ],
                       ),
-                      onPressed: () => setState(() => _showSheet = !_showSheet),
-                      tooltip: _showSheet ? 'Show Lyrics' : 'Show Music Sheet',
-                    ),
-                  ],
-                ),
               ),
             ),
           ),
+          // Content area (PDF or Lyrics)
           Expanded(
             child: _showSheet
                 ? kIsWeb || !_isPdfInitialized || _pdfPath == null
