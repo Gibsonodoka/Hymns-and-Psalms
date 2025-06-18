@@ -4,6 +4,8 @@ import 'providers/theme_provider.dart';
 import 'screens/home_screen.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  print('Starting app...');
   runApp(
     ChangeNotifierProvider(
       create: (_) => ThemeProvider(),

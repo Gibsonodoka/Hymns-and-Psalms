@@ -19,8 +19,10 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
   final AudioPlayer _player = AudioPlayer();
   bool _isPlaying = false;
   bool _isAudioInitialized = false;
+  bool _isAudioLoading = false;
   String? _pdfPath;
   bool _isPdfInitialized = false;
+  bool _isPdfLoading = false;
 
   @override
   void initState() {
@@ -31,22 +33,35 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
 
   Future<void> _initializeAudio() async {
     if (kIsWeb) {
+      print('Web platform detected, audio disabled');
       setState(() => _isAudioInitialized = false);
       return;
     }
+    setState(() => _isAudioLoading = true);
     try {
+      print('Initializing audio for: ${widget.hymn.audioUrl}');
       await _player.setAsset(widget.hymn.audioUrl);
       _player.playerStateStream.listen((state) {
         if (mounted) {
           setState(() => _isPlaying = state.playing);
         }
       });
-      setState(() => _isAudioInitialized = true);
-    } catch (e) {
       if (mounted) {
-        setState(() => _isAudioInitialized = false);
+        setState(() {
+          _isAudioInitialized = true;
+          _isAudioLoading = false;
+        });
+        print('Audio initialized successfully');
+      }
+    } catch (e, stackTrace) {
+      if (mounted) {
+        setState(() {
+          _isAudioInitialized = false;
+          _isAudioLoading = false;
+        });
+        print('Error initializing audio: $e\nStackTrace: $stackTrace');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading audio: $e')),
+          SnackBar(content: Text('Error initializing audio: $e')),
         );
       }
     }
@@ -54,22 +69,32 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
 
   Future<void> _initializePdf() async {
     if (kIsWeb) {
+      print('Web platform detected, PDF disabled');
       setState(() => _isPdfInitialized = false);
       return;
     }
+    setState(() => _isPdfLoading = true);
     try {
-      // Copy PDF from assets to temporary directory
+      print('Loading PDF: ${widget.hymn.sheetUrl}');
       final bytes = await DefaultAssetBundle.of(context).load(widget.hymn.sheetUrl);
       final tempDir = await getTemporaryDirectory();
       final tempFile = File('${tempDir.path}/${widget.hymn.title.replaceAll(' ', '_')}.pdf');
       await tempFile.writeAsBytes(bytes.buffer.asUint8List());
-      setState(() {
-        _pdfPath = tempFile.path;
-        _isPdfInitialized = true;
-      });
-    } catch (e) {
       if (mounted) {
-        setState(() => _isPdfInitialized = false);
+        setState(() {
+          _pdfPath = tempFile.path;
+          _isPdfInitialized = true;
+          _isPdfLoading = false;
+        });
+        print('PDF loaded successfully: $_pdfPath');
+      }
+    } catch (e, stackTrace) {
+      if (mounted) {
+        setState(() {
+          _isPdfInitialized = false;
+          _isPdfLoading = false;
+        });
+        print('Error loading PDF: $e\nStackTrace: $stackTrace');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading PDF: $e')),
         );
@@ -109,7 +134,6 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
       ),
       body: Column(
         children: [
-          // Music controls and PDF toggle in a Card
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Card(
@@ -120,12 +144,13 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Audio controls
                     kIsWeb || !_isAudioInitialized
-                        ? const Text(
-                            'Audio not supported',
-                            style: TextStyle(fontSize: 14, color: Colors.grey),
-                          )
+                        ? _isAudioLoading
+                            ? const CircularProgressIndicator()
+                            : const Text(
+                                'Audio not supported',
+                                style: TextStyle(fontSize: 14, color: Colors.red),
+                              )
                         : Row(
                             children: [
                               IconButton(
@@ -134,11 +159,17 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
                                   size: 28,
                                   color: Theme.of(context).primaryColor,
                                 ),
-                                onPressed: () {
-                                  if (_isPlaying) {
-                                    _player.pause();
-                                  } else {
-                                    _player.play();
+                                onPressed: () async {
+                                  try {
+                                    if (_isPlaying) {
+                                      await _player.pause();
+                                    } else {
+                                      await _player.play();
+                                    }
+                                  } catch (e) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Error playing audio: $e')),
+                                    );
                                   }
                                 },
                                 tooltip: _isPlaying ? 'Pause' : 'Play',
@@ -149,15 +180,20 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
                                   size: 28,
                                   color: Theme.of(context).primaryColor,
                                 ),
-                                onPressed: () {
-                                  _player.stop();
-                                  _player.seek(Duration.zero);
+                                onPressed: () async {
+                                  try {
+                                    await _player.stop();
+                                    await _player.seek(Duration.zero);
+                                  } catch (e) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Error stopping audio: $e')),
+                                    );
+                                  }
                                 },
                                 tooltip: 'Stop',
                               ),
                             ],
                           ),
-                    // PDF toggle button
                     IconButton(
                       icon: Icon(
                         _showSheet ? Icons.lyrics : Icons.description,
@@ -172,16 +208,28 @@ class _HymnDetailScreenState extends State<HymnDetailScreen> {
               ),
             ),
           ),
-          // Content area (PDF or Lyrics)
           Expanded(
             child: _showSheet
                 ? kIsWeb || !_isPdfInitialized || _pdfPath == null
-                    ? const Center(child: Text('PDF not supported'))
+                    ? _isPdfLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : Center(
+                            child: Text(
+                              'PDF not supported: ${_pdfPath ?? 'No file'}',
+                              style: const TextStyle(fontSize: 16, color: Colors.red),
+                            ),
+                          )
                     : PDFView(
                         filePath: _pdfPath!,
                         autoSpacing: true,
                         enableSwipe: true,
                         swipeHorizontal: true,
+                        onError: (error) {
+                          print('PDFView error: $error');
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error rendering PDF: $error')),
+                          );
+                        },
                       )
                 : SingleChildScrollView(
                     padding: const EdgeInsets.all(16),
